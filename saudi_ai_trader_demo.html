@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Saudi AI Trader — محاكاة</title>
+<style>
+*{box-sizing:border-box}body{background:#101827;color:white;font:16px Arial,sans-serif;margin:0;padding:20px}.container{max-width:700px;margin:auto}h1{color:#63d9b0;text-align:center}.subtitle{text-align:center;color:#b8c5d6}.card{background:#243247;padding:20px;border-radius:12px;margin-top:20px}input{width:100%;padding:14px;border:0;border-radius:8px;margin:10px 0;font-size:16px}button{background:#16a085;color:white;padding:12px 16px;border:0;border-radius:8px;font-size:16px;margin:4px;cursor:pointer}button:disabled{opacity:.5}.notice{color:#ffd580;line-height:1.8}.status{color:#63d9b0}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #516075;text-align:right}small{color:#b8c5d6}
+</style></head><body><div class="container">
+<h1>Saudi AI Trader</h1><p class="subtitle">المتداول السعودي الذكي — وضع تجريبي فقط</p>
+<div class="card"><h2>لوحة التحكم</h2><p class="status" id="status">● المحاكاة متوقفة</p><p>السوق المستهدف: الأسهم السعودية</p><p class="notice">الأسعار مولّدة اصطناعياً للاختبار، وليست أسعار تداول ولا توصيات. لا يوجد اتصال بالبورصة أو بالوسيط.</p><button id="start">بدء المحاكاة</button><button id="stop" disabled>إيقاف</button><button id="reset">إعادة ضبط المحفظة</button></div>
+<div class="card"><h2>مراقبة الأسهم</h2><label for="stock">أدخل رمز السهم السعودي (4 أرقام):</label><input id="stock" maxlength="4" inputmode="numeric" placeholder="مثال: 2222"><button id="add">إضافة السهم</button><ul id="stockList"></ul></div>
+<div class="card"><h2>المحفظة الافتراضية</h2><p>الرصيد النقدي: <strong id="cash"></strong> ريال</p><p>قيمة المراكز: <strong id="positionsValue"></strong> ريال</p><p>إجمالي المحفظة: <strong id="equity"></strong> ريال</p><p>الربح/الخسارة الإجمالية: <strong id="pnl"></strong> ريال</p><small>الأسعار تبدأ بقيمة اصطناعية ثابتة لكل رمز، وتتغير عشوائياً كل ثانيتين. الصفقات اليدوية لا تتضمن عمولات أو انزلاقاً سعرياً.</small></div>
+<div class="card"><h2>الصفقات التجريبية</h2><div style="overflow-x:auto"><table><thead><tr><th>السهم</th><th>السعر الافتراضي</th><th>الكمية المملوكة</th><th>إجراء</th></tr></thead><tbody id="rows"></tbody></table></div></div>
+<div class="card"><h2>سجل العمليات</h2><ul id="log"></ul></div>
+</div><script>
+"use strict";
+const initial=1000;
+let cash=initial,stocks={},holdings={},timer=null,logs=[];
+const $=id=>document.getElementById(id);
+const fmt=n=>Number(n).toFixed(2);
+function addStock(){
+ const s=$("stock").value.trim();
+ if(!/^\\d{4}$/.test(s)){alert("أدخل رمز سهم من أربعة أرقام");return}
+ if(stocks[s]){alert("السهم موجود بالفعل");return}
+ stocks[s]={price:50+(Number(s)%100)};
+ holdings[s]=0;
+ $("stock").value="";render();
+}
+function log(message){logs.unshift(new Date().toLocaleTimeString("ar-SA")+" — "+message);logs=logs.slice(0,30)}
+function trade(symbol,side){
+ const p=stocks[symbol].price;
+ if(side==="buy"){if(cash+1e-8<p){alert("الرصيد لا يكفي لشراء سهم واحد");return}cash=Math.max(0,cash-p);holdings[symbol]++;log("شراء سهم واحد "+symbol+" بسعر "+fmt(p))}
+ else{if(!holdings[symbol]){alert("لا توجد أسهم للبيع");return}cash+=p;holdings[symbol]--;log("بيع سهم واحد "+symbol+" بسعر "+fmt(p))}
+ render();
+}
+function tick(){for(const s of Object.keys(stocks)){const move=(Math.random()-.5)*.02;stocks[s].price=Math.max(.01,Math.round(stocks[s].price*(1+move)*100)/100)}render()}
+function start(){if(timer)return;timer=setInterval(tick,2000);render()}
+function stop(){if(timer){clearInterval(timer);timer=null}render()}
+function reset(){stop();cash=initial;stocks={};holdings={};logs=[];render()}
+function render(){
+ $("status").textContent=timer?"● المحاكاة تعمل — أسعار اصطناعية":"● المحاكاة متوقفة";
+ $("start").disabled=!!timer;$("stop").disabled=!timer;
+ $("stockList").replaceChildren(...Object.keys(stocks).map(s=>{const li=document.createElement("li");li.textContent="السهم "+s+" — "+fmt(stocks[s].price)+" ريال (اصطناعي)";return li}));
+ const rows=$("rows");rows.replaceChildren();
+ for(const s of Object.keys(stocks)){
+  const tr=document.createElement("tr");
+  for(const v of [s,fmt(stocks[s].price),String(holdings[s])]){const td=document.createElement("td");td.textContent=v;tr.appendChild(td)}
+  const td=document.createElement("td");
+  for(const [label,side] of [["شراء 1","buy"],["بيع 1","sell"]]){const b=document.createElement("button");b.textContent=label;b.disabled=side==="buy"?cash<stocks[s].price:holdings[s]===0;b.addEventListener("click",()=>trade(s,side));td.appendChild(b)}
+  tr.appendChild(td);rows.appendChild(tr);
+ }
+ const value=Object.keys(stocks).reduce((sum,s)=>sum+holdings[s]*stocks[s].price,0);
+ $("cash").textContent=fmt(cash);$("positionsValue").textContent=fmt(value);$("equity").textContent=fmt(cash+value);$("pnl").textContent=fmt(cash+value-initial);
+ $("log").replaceChildren(...logs.map(m=>{const li=document.createElement("li");li.textContent=m;return li}));
+}
+$("add").addEventListener("click",addStock);
+$("stock").addEventListener("keydown",e=>{if(e.key==="Enter")addStock()});
+$("start").addEventListener("click",start);$("stop").addEventListener("click",stop);$("reset").addEventListener("click",()=>{if(confirm("إعادة المحفظة إلى 1000 ريال ومسح الأسهم والعمليات؟"))reset()});
+render();
+</script></body></html>
