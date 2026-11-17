@@ -18,7 +18,7 @@ const $=id=>document.getElementById(id);
 const fmt=n=>Number(n).toFixed(2);
 function addStock(){
  const s=$("stock").value.trim();
- if(!/^\\d{4}$/.test(s)){alert("أدخل رمز سهم من أربعة أرقام");return}
+if(!/^[0-9]{4}$/.test(s)){alert("أدخل رمز سهم من أربعة أرقام");return}
  if(stocks[s]){alert("السهم موجود بالفعل");return}
  stocks[s]={price:50+(Number(s)%100)};
  holdings[s]=0;
