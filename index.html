@@ -1,1 +1,167 @@
-    
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Saudi AI Trader</title>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: #101827;
+  color: white;
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 20px;
+}
+
+.container {
+  max-width: 700px;
+  margin: auto;
+}
+
+h1 {
+  color: #63d9b0;
+  text-align: center;
+}
+
+.subtitle {
+  text-align: center;
+  color: #b8c5d6;
+}
+
+.card {
+  background: #243247;
+  padding: 20px;
+  border-radius: 12px;
+  margin-top: 20px;
+}
+
+.status {
+  color: #63d9b0;
+}
+
+input {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 8px;
+  margin: 10px 0;
+  font-size: 16px;
+}
+
+button {
+  background: #16a085;
+  color: white;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+li {
+  padding: 8px;
+}
+
+.notice {
+  color: #ffd580;
+  line-height: 1.8;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>Saudi AI Trader</h1>
+
+<p class="subtitle">
+المتداول السعودي الذكي
+</p>
+
+<div class="card">
+<h2>لوحة التحكم</h2>
+
+<p class="status">
+● واجهة البرنامج تعمل بنجاح
+</p>
+
+<p>السوق: الأسهم السعودية</p>
+<p>حالة النظام: نسخة تجريبية</p>
+</div>
+
+<div class="card">
+<h2>مراقبة الأسهم</h2>
+
+<p>أدخل رمز السهم السعودي:</p>
+
+<input
+id="stock"
+type="text"
+placeholder="مثال: 2222"
+maxlength="4"
+>
+
+<button onclick="addStock()">
+إضافة السهم
+</button>
+
+<ul id="stockList"></ul>
+</div>
+
+<div class="card">
+<h2>محرك التحليل الذكي</h2>
+
+<p>تحليل حركة الأسعار والسيولة</p>
+<p>تحليل ضغط الشراء والبيع</p>
+<p>تقييم فرص المضاربة اليومية</p>
+<p>تحديد نقاط الدخول والخروج</p>
+
+<p class="notice">
+هذه الوظائف قيد التطوير.
+لا توجد حاليًا بيانات سوق مباشرة
+أو توصيات شراء وبيع فعلية.
+</p>
+</div>
+
+<div class="card">
+<h2>إدارة المخاطر</h2>
+
+<p>رأس المال التجريبي: 1000 ريال</p>
+<p>التداول الحقيقي: غير مفعل</p>
+<p>الربط بالأهلي المالية: غير مفعل</p>
+</div>
+
+</div>
+
+<script>
+function addStock() {
+  const input = document.getElementById("stock");
+  const symbol = input.value.trim();
+
+  if (!/^[0-9]{4}$/.test(symbol)) {
+    alert("أدخل رمز سهم من أربعة أرقام");
+    return;
+  }
+
+  const list = document.getElementById("stockList");
+  const item = document.createElement("li");
+
+  item.textContent =
+    "السهم " + symbol + " - بانتظار البيانات";
+
+  list.appendChild(item);
+  input.value = "";
+}
+</script>
+
+</body>
+</html>
+
+
