@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Saudi AI Trader – أسعار حقيقية</title>
+<style>
+  body { font-family: system-ui, sans-serif; background:#0f1720; color:#e6edf3; margin:0; padding:16px; }
+  h1 { font-size:20px; }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  input, button { padding:10px; border-radius:8px; border:1px solid #334; background:#1b2632; color:#e6edf3; font-size:15px; }
+  button { background:#1f6feb; border:none; cursor:pointer; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
+  .card { background:#16202b; border-radius:12px; padding:14px; }
+  .price { font-size:26px; font-weight:bold; margin:6px 0; }
+  .up { color:#3fb950; }
+  .down { color:#f85149; }
+  .muted { color:#8b949e; font-size:12px; }
+  .err { color:#f85149; font-size:13px; }
+</style>
+</head>
+<body>
+<h1>Saudi AI Trader – أسعار حقيقية (تداول تجريبي فقط)</h1>
+
+<div class="bar">
+  <input id="token" type="password" placeholder="كلمة سر الخادم">
+  <button onclick="saveToken()">حفظ كلمة السر</button>
+  <input id="sym" placeholder="رمز السهم مثل 1120" maxlength="4">
+  <button onclick="addSym()">إضافة</button>
+  <button onclick="refreshAll()">تحديث الكل</button>
+</div>
+<div class="muted" id="status"></div>
+<div class="grid" id="grid"></div>
+
+<script>
+const API = "https://patient-forest-7c62.hasalqurashibtq.workers.dev";
+let symbols = JSON.parse(localStorage.getItem("symbols") || '["2222","1120","2010"]');
+
+function token() {
+  return localStorage.getItem("appToken") || "";
+}
+
+function saveToken() {
+  const t = document.getElementById("token").value.trim();
+  if (!t) return;
+  localStorage.setItem("appToken", t);
+  document.getElementById("token").value = "";
+  refreshAll();
+}
+
+function addSym() {
+  const s = document.getElementById("sym").value.trim();
+  if (!/^\d{4}$/.test(s)) {
+    alert("الرمز لازم يكون 4 أرقام");
+    return;
+  }
+  if (!symbols.includes(s)) symbols.push(s);
+  localStorage.setItem("symbols", JSON.stringify(symbols));
+  document.getElementById("sym").value = "";
+  refreshAll();
+}
+
+function removeSym(s) {
+  symbols = symbols.filter(x => x !== s);
+  localStorage.setItem("symbols", JSON.stringify(symbols));
+  refreshAll();
+}
+
+async function fetchQuote(s) {
+  const res = await fetch(`${API}/api/quote/${s}`, {
+    headers: { "Authorization": `Bearer ${token()}` }
+  });
+  return res.json();
+}
+
+function card(s, r) {
+  if (!r.ok) {
+    return `<div class="card">
+      <b>${s}</b>
+      <div class="err">${r.error || "تعذر جلب السعر"}</div>
+      <button onclick="removeSym('${s}')">حذف</button>
+    </div>`;
+  }
+  const d = r.data;
+  const cls = d.change >= 0 ? "up" : "down";
+  return `<div class="card">
+    <b>${d.name}</b> <span class="muted">${d.symbol}</span>
+    <div class="price ${cls}">${d.price}</div>
+    <div class="${cls}">${d.change} (${d.change_percent}%)</div>
+    <div class="muted">أعلى ${d.high} · أدنى ${d.low} · افتتاح ${d.open}</div>
+    <div class="muted">${d.is_delayed ? "بيانات متأخرة" : "لحظية"} · آخر تحديث ${new Date(d.updated_at).toLocaleString("ar-SA")}</div>
+    <button onclick="removeSym('${s}')">حذف</button>
+  </div>`;
+}
+
+async function refreshAll() {
+  const status = document.getElementById("status");
+  if (!token()) {
+    status.textContent = "اكتب كلمة سر الخادم واضغط حفظ.";
+    return;
+  }
+  status.textContent = "جاري التحديث...";
+  const results = await Promise.all(
+    symbols.map(s => fetchQuote(s).catch(() => ({ ok: false, error: "فشل الاتصال" })))
+  );
+  document.getElementById("grid").innerHTML = symbols.map((s, i) => card(s, results[i])).join("");
+  status.textContent = "آخر تحديث: " + new Date().toLocaleTimeString("ar-SA");
+}
+
+refreshAll();
+</script>
+</body>
+</html>
