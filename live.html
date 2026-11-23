@@ -3,108 +3,179 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Saudi AI Trader – أسعار حقيقية</title>
+<title>Saudi AI Trader – تداول تجريبي</title>
 <style>
-  body { font-family: system-ui, sans-serif; background:#0f1720; color:#e6edf3; margin:0; padding:16px; }
-  h1 { font-size:20px; }
-  .bar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
-  input, button { padding:10px; border-radius:8px; border:1px solid #334; background:#1b2632; color:#e6edf3; font-size:15px; }
-  button { background:#1f6feb; border:none; cursor:pointer; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
-  .card { background:#16202b; border-radius:12px; padding:14px; }
-  .price { font-size:26px; font-weight:bold; margin:6px 0; }
-  .up { color:#3fb950; }
-  .down { color:#f85149; }
-  .muted { color:#8b949e; font-size:12px; }
-  .err { color:#f85149; font-size:13px; }
+body{font-family:system-ui,sans-serif;background:#0f1720;color:#e6edf3;margin:0;padding:16px}
+h2{font-size:17px;margin-top:24px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+input,button{padding:10px;border-radius:8px;border:1px solid #334;background:#1b2632;color:#e6edf3;font-size:15px}
+button{background:#1f6feb;border:none;cursor:pointer}
+button.sell{background:#da3633}
+button.gray{background:#30363d}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.card,.box{background:#16202b;border-radius:12px;padding:14px}
+.summary{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+.box b{display:block;font-size:20px;margin-top:4px}
+.price{font-size:26px;font-weight:bold;margin:6px 0}
+.up{color:#3fb950}.down{color:#f85149}
+.muted{color:#8b949e;font-size:12px}
+table{width:100%;border-collapse:collapse;margin-top:8px}
+td,th{padding:8px;border-bottom:1px solid #26313d;text-align:right;font-size:14px}
+.qty{width:70px}
 </style>
 </head>
 <body>
-<h1>Saudi AI Trader – أسعار حقيقية (تداول تجريبي فقط)</h1>
-
+<h1 style="font-size:20px">Saudi AI Trader – تداول تجريبي بأموال وهمية فقط</h1>
 <div class="bar">
-  <input id="token" type="password" placeholder="كلمة سر الخادم">
-  <button onclick="saveToken()">حفظ كلمة السر</button>
-  <input id="sym" placeholder="رمز السهم مثل 1120" maxlength="4">
-  <button onclick="addSym()">إضافة</button>
-  <button onclick="refreshAll()">تحديث الكل</button>
+<input id="token" type="password" placeholder="كلمة سر الخادم">
+<button onclick="saveToken()">حفظ كلمة السر</button>
+<input id="sym" placeholder="رمز السهم مثل 1120" maxlength="4">
+<button onclick="addSym()">إضافة</button>
+<button onclick="refreshAll()">تحديث الكل</button>
+<button class="gray" onclick="resetPortfolio()">تصفير المحفظة</button>
 </div>
 <div class="muted" id="status"></div>
+
+<h2>المحفظة</h2>
+<div class="summary">
+<div class="box">النقد المتاح<b id="cash">-</b></div>
+<div class="box">قيمة الأسهم<b id="hold">-</b></div>
+<div class="box">الإجمالي<b id="total">-</b></div>
+<div class="box">الربح/الخسارة<b id="pnl">-</b></div>
+</div>
+<table><thead><tr><th>السهم</th><th>الكمية</th><th>متوسط الشراء</th><th>السعر الحالي</th><th>الربح/الخسارة</th></tr></thead><tbody id="positions"></tbody></table>
+
+<h2>الأسهم</h2>
 <div class="grid" id="grid"></div>
 
+<h2>سجل العمليات</h2>
+<table><thead><tr><th>الوقت</th><th>العملية</th><th>السهم</th><th>الكمية</th><th>السعر</th></tr></thead><tbody id="trades"></tbody></table>
+
 <script>
-const API = "https://patient-forest-7c62.hasalqurashibtq.workers.dev";
-let symbols = JSON.parse(localStorage.getItem("symbols") || '["2222","1120","2010"]');
+const API="https://patient-forest-7c62.hasalqurashibtq.workers.dev";
+const START=100000;
+let symbols=JSON.parse(localStorage.getItem("symbols")||'["2222","1120","2010"]');
+let pf=JSON.parse(localStorage.getItem("portfolio")||"null")||{cash:START,positions:{},trades:[]};
+let quotes={};
 
-function token() {
-  return localStorage.getItem("appToken") || "";
-}
+const token=()=>localStorage.getItem("appToken")||"";
+const fmt=n=>Number(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const savePf=()=>localStorage.setItem("portfolio",JSON.stringify(pf));
+const saveSyms=()=>localStorage.setItem("symbols",JSON.stringify(symbols));
 
-function saveToken() {
-  const t = document.getElementById("token").value.trim();
-  if (!t) return;
-  localStorage.setItem("appToken", t);
-  document.getElementById("token").value = "";
+function saveToken(){
+  const t=document.getElementById("token").value.trim();
+  if(!t)return;
+  localStorage.setItem("appToken",t);
+  document.getElementById("token").value="";
   refreshAll();
 }
-
-function addSym() {
-  const s = document.getElementById("sym").value.trim();
-  if (!/^\d{4}$/.test(s)) {
-    alert("الرمز لازم يكون 4 أرقام");
-    return;
-  }
-  if (!symbols.includes(s)) symbols.push(s);
-  localStorage.setItem("symbols", JSON.stringify(symbols));
-  document.getElementById("sym").value = "";
+function addSym(){
+  const s=document.getElementById("sym").value.trim();
+  if(!/^\d{4}$/.test(s)){alert("الرمز لازم يكون 4 أرقام");return;}
+  if(!symbols.includes(s))symbols.push(s);
+  saveSyms();
+  document.getElementById("sym").value="";
   refreshAll();
 }
+function removeSym(s){
+  if(pf.positions[s]){alert("بع السهم أولًا قبل حذفه");return;}
+  symbols=symbols.filter(x=>x!==s);
+  saveSyms();
+  render();
+}
+function getQty(s){return parseInt(document.getElementById("q_"+s).value,10);}
 
-function removeSym(s) {
-  symbols = symbols.filter(x => x !== s);
-  localStorage.setItem("symbols", JSON.stringify(symbols));
-  refreshAll();
+function buy(s){
+  const q=quotes[s],qty=getQty(s);
+  if(!q||!q.ok){alert("ما فيه سعر لهذا السهم");return;}
+  if(!qty||qty<=0){alert("اكتب كمية صحيحة");return;}
+  const price=q.data.price,cost=qty*price;
+  if(cost>pf.cash){alert("النقد ما يكفي");return;}
+  const p=pf.positions[s]||{qty:0,avg:0};
+  p.avg=(p.avg*p.qty+cost)/(p.qty+qty);
+  p.qty+=qty;
+  pf.positions[s]=p;
+  pf.cash-=cost;
+  pf.trades.unshift({t:new Date().toISOString(),side:"شراء",s,qty,price});
+  savePf();render();
+}
+function sell(s){
+  const q=quotes[s],qty=getQty(s),p=pf.positions[s];
+  if(!q||!q.ok){alert("ما فيه سعر لهذا السهم");return;}
+  if(!p){alert("ما تملك هذا السهم");return;}
+  if(!qty||qty<=0||qty>p.qty){alert("الكمية أكبر من اللي تملكه");return;}
+  const price=q.data.price;
+  p.qty-=qty;
+  pf.cash+=qty*price;
+  if(p.qty===0)delete pf.positions[s];
+  pf.trades.unshift({t:new Date().toISOString(),side:"بيع",s,qty,price});
+  savePf();render();
+}
+function resetPortfolio(){
+  if(!confirm("متأكد؟ بيرجع النقد 100,000 وتنمسح كل العمليات"))return;
+  pf={cash:START,positions:{},trades:[]};
+  savePf();render();
 }
 
-async function fetchQuote(s) {
-  const res = await fetch(`${API}/api/quote/${s}`, {
-    headers: { "Authorization": `Bearer ${token()}` }
-  });
-  return res.json();
+async function fetchQuote(s){
+  const r=await fetch(API+"/api/quote/"+s,{headers:{Authorization:"Bearer "+token()}});
+  return r.json();
 }
 
-function card(s, r) {
-  if (!r.ok) {
-    return `<div class="card">
-      <b>${s}</b>
-      <div class="err">${r.error || "تعذر جلب السعر"}</div>
-      <button onclick="removeSym('${s}')">حذف</button>
-    </div>`;
-  }
-  const d = r.data;
-  const cls = d.change >= 0 ? "up" : "down";
+function card(s){
+  const r=quotes[s];
+  if(!r)return `<div class="card"><b>${s}</b><div class="muted">جاري التحميل...</div></div>`;
+  if(!r.ok)return `<div class="card"><b>${s}</b><div class="down">${r.error||"تعذر جلب السعر"}</div><button class="gray" onclick="removeSym('${s}')">حذف</button></div>`;
+  const d=r.data,c=d.change>=0?"up":"down";
+  const owned=pf.positions[s]?pf.positions[s].qty:0;
   return `<div class="card">
-    <b>${d.name}</b> <span class="muted">${d.symbol}</span>
-    <div class="price ${cls}">${d.price}</div>
-    <div class="${cls}">${d.change} (${d.change_percent}%)</div>
-    <div class="muted">أعلى ${d.high} · أدنى ${d.low} · افتتاح ${d.open}</div>
-    <div class="muted">${d.is_delayed ? "بيانات متأخرة" : "لحظية"} · آخر تحديث ${new Date(d.updated_at).toLocaleString("ar-SA")}</div>
-    <button onclick="removeSym('${s}')">حذف</button>
-  </div>`;
+<b>${d.name}</b> <span class="muted">${d.symbol}</span>
+<div class="price ${c}">${d.price}</div>
+<div class="${c}">${d.change} (${d.change_percent}%)</div>
+<div class="muted">أعلى ${d.high} · أدنى ${d.low} · افتتاح ${d.open}</div>
+<div class="muted">${d.is_delayed?"بيانات متأخرة":"لحظية"} · تملك: ${owned}</div>
+<div class="bar" style="margin-top:8px">
+<input class="qty" id="q_${s}" type="number" min="1" value="10">
+<button onclick="buy('${s}')">شراء</button>
+<button class="sell" onclick="sell('${s}')">بيع</button>
+<button class="gray" onclick="removeSym('${s}')">حذف</button>
+</div></div>`;
 }
 
-async function refreshAll() {
-  const status = document.getElementById("status");
-  if (!token()) {
-    status.textContent = "اكتب كلمة سر الخادم واضغط حفظ.";
-    return;
+function render(){
+  document.getElementById("grid").innerHTML=symbols.map(card).join("");
+  let hold=0,rows="";
+  for(const s in pf.positions){
+    const p=pf.positions[s];
+    const q=quotes[s];
+    const price=q&&q.ok?q.data.price:p.avg;
+    const name=q&&q.ok?q.data.name:s;
+    const val=p.qty*price,pl=val-p.qty*p.avg;
+    hold+=val;
+    rows+=`<tr><td>${name} (${s})</td><td>${p.qty}</td><td>${fmt(p.avg)}</td><td>${fmt(price)}</td><td class="${pl>=0?"up":"down"}">${fmt(pl)}</td></tr>`;
   }
-  status.textContent = "جاري التحديث...";
-  const results = await Promise.all(
-    symbols.map(s => fetchQuote(s).catch(() => ({ ok: false, error: "فشل الاتصال" })))
-  );
-  document.getElementById("grid").innerHTML = symbols.map((s, i) => card(s, results[i])).join("");
-  status.textContent = "آخر تحديث: " + new Date().toLocaleTimeString("ar-SA");
+  document.getElementById("positions").innerHTML=rows||`<tr><td colspan="5" class="muted">ما عندك أسهم للحين</td></tr>`;
+  const total=pf.cash+hold,pnl=total-START;
+  document.getElementById("cash").textContent=fmt(pf.cash);
+  document.getElementById("hold").textContent=fmt(hold);
+  document.getElementById("total").textContent=fmt(total);
+  const pe=document.getElementById("pnl");
+  pe.textContent=fmt(pnl);
+  pe.className=pnl>=0?"up":"down";
+  document.getElementById("trades").innerHTML=pf.trades.slice(0,50).map(x=>
+    `<tr><td>${new Date(x.t).toLocaleString("ar-SA")}</td><td class="${x.side==="شراء"?"up":"down"}">${x.side}</td><td>${x.s}</td><td>${x.qty}</td><td>${fmt(x.price)}</td></tr>`
+  ).join("")||`<tr><td colspan="5" class="muted">ما فيه عمليات للحين</td></tr>`;
+}
+
+async function refreshAll(){
+  const st=document.getElementById("status");
+  if(!token()){st.textContent="اكتب كلمة سر الخادم واضغط حفظ";render();return;}
+  st.textContent="جاري التحديث...";
+  const res=await Promise.all(symbols.map(s=>fetchQuote(s).catch(()=>({ok:false,error:"فشل الاتصال"}))));
+  symbols.forEach((s,i)=>quotes[s]=res[i]);
+  render();
+  st.textContent="آخر تحديث: "+new Date().toLocaleTimeString("ar-SA");
 }
 
 refreshAll();
